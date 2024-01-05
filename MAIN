@@ -1,0 +1,71 @@
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
+from bs4 import BeautifulSoup
+import csv
+import re
+
+def fetch_footer_year(url):
+    """
+    Fetch the publication year from a webpage's footer using Selenium with image loading disabled.
+
+    Parameters:
+    - url (str): The URL of the webpage.
+
+    Returns:
+    - str: The extracted publication year from the footer or an informative message.
+    """
+    driver = None
+    try:
+        # Configure Chrome options to disable image loading
+        chrome_options = webdriver.ChromeOptions()
+        chrome_options.add_argument('--blink-settings=imagesEnabled=false')
+
+        # Create a Chrome driver with the specified options
+        driver = webdriver.Chrome(options=chrome_options)
+        driver.get(url)
+
+        # Get page source after JavaScript has rendered
+        page_source = driver.page_source
+        soup = BeautifulSoup(page_source, 'html.parser')
+
+        # Find the footer
+        footer = soup.find('footer')
+
+        if footer:
+            # Search for the year in the footer text
+            year_match = re.search(r'\b(19|20)\d{2}\b', footer.text)
+            return year_match.group() if year_match else "Year not found"
+        else:
+            return "No footer found"
+    except Exception as e:
+        return f"Error: {e}"
+    finally:
+        if driver:
+            # Close the driver only if it's not None
+            driver.quit()
+
+def process_urls(file_path, output_file='footer_years.csv'):
+    """
+    Process a list of URLs, fetch footer years using Selenium, and save results to a CSV file.
+
+    Parameters:
+    - file_path (str): Path to the file containing URLs.
+    - output_file (str): Name of the output CSV file (default is 'footer_years.csv').
+    """
+    with open(file_path, 'r') as file:
+        urls = file.read().splitlines()
+
+    results = [("URL", "Footer Year")]
+    for url in urls:
+        year = fetch_footer_year(url)
+        results.append((url, year))
+        print(f"Processed {url}")
+
+    with open(output_file, 'w', newline='', encoding='utf-8') as f:
+        writer = csv.writer(f)
+        writer.writerows(results)
+        print(f"Results saved to {output_file}")
+
+# Example usage:
+process_urls('url_out.csv')
